@@ -4,12 +4,11 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.*;
 
 public class MqttDataTransformer {
-    // 使用 Set 存储固定字段，查找速度更快
-    private static final Set<String> FIXED_FIELDS = new HashSet<>(Arrays.asList(
+    // 排除掉网关自带的固定字段，剩下的全部视为传感器功能点
+    private static final Set<String> BLACK_LIST = new HashSet<>(Arrays.asList(
             "applicationID", "cellularIP", "devEUI", "deviceName", "gatewayTime"
     ));
 
@@ -22,12 +21,11 @@ public class MqttDataTransformer {
         JSONObject devItem = new JSONObject(new LinkedHashMap<>());
         JSONArray dArray = new JSONArray();
 
-        // 动态遍历
+        // 动态遍历：只要不是黑名单里的，且不以 _change 结尾，都转为功能 m
         input.forEach((key, value) -> {
-            // 排除固定字段 和 _change 结尾的字段
-            if (!FIXED_FIELDS.contains(key) && !key.endsWith("_change")) {
+            if (!BLACK_LIST.contains(key) && !key.endsWith("_change")) {
                 JSONObject metric = new JSONObject(new LinkedHashMap<>());
-                metric.put("v", value);
+                metric.put("v", value); // 保持原始类型
                 metric.put("dq", 0);
                 metric.put("m", key);
                 metric.put("ts", now);
@@ -36,7 +34,9 @@ public class MqttDataTransformer {
         });
 
         devItem.put("d", dArray);
-        devItem.put("dev", input.getString("devEUI"));
+        // 优先取 devEUI 作为设备标识，没有则取名字
+        String devId = input.getString("devEUI") != null ? input.getString("devEUI") : input.getString("deviceName");
+        devItem.put("dev", devId);
         devsArray.add(devItem);
 
         output.put("devs", devsArray);
