@@ -1,4 +1,4 @@
-package org.liang;
+package org.liang.get;
 
 import org.eclipse.paho.client.mqttv3.*;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
@@ -16,8 +16,8 @@ public class MqttManager {
         this.listener = listener;
     }
 
-    public void start(String broker, String subTopic, String pubTopic, String pKey, String sn) {
-        // 在后台线程连接，防止 UI 卡死
+    // 增加了 deviceType 参数
+    public void start(String broker, String subTopic, String pubTopic, String pKey, String sn, String deviceType) {
         new Thread(() -> {
             try {
                 client = new MqttClient(broker, "Gate_" + System.currentTimeMillis(), new MemoryPersistence());
@@ -32,11 +32,16 @@ public class MqttManager {
                     }
                     public void messageArrived(String t, MqttMessage m) {
                         String raw = new String(m.getPayload(), StandardCharsets.UTF_8);
-                        String result = MqttDataTransformer.transform(raw, pKey, sn);
+
+                        // 修复处：传入 deviceType 参数
+                        String result = MqttDataTransformer.transform(raw, pKey, sn, deviceType);
+
                         try {
                             client.publish(pubTopic, result.getBytes(StandardCharsets.UTF_8), 1, false);
-                            listener.onUpdate("🔄 转发成功: " + result);
-                        } catch (Exception e) { listener.onUpdate("❌ 发送失败: " + e.getMessage()); }
+                            listener.onUpdate("🔄 [" + deviceType + "] 转发成功: " + result);
+                        } catch (Exception e) {
+                            listener.onUpdate("❌ 发送失败: " + e.getMessage());
+                        }
                     }
                     public void connectionLost(Throwable cause) { listener.onUpdate("⚠️ 连接丢失"); }
                     public void deliveryComplete(IMqttDeliveryToken token) {}
