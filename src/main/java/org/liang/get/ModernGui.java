@@ -41,7 +41,7 @@ public class ModernGui extends JFrame {
 
     private JPanel createTransformerPanel() {
         // 1. 创建主面板，背景设置为深色调
-        JPanel panel = new JPanel(new BorderLayout(15, 15));
+        JPanel panel = new JPanel(new  BorderLayout(15, 15));
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
         panel.setBackground(new Color(35, 35, 35));
 
