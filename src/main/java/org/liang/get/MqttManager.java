@@ -58,18 +58,23 @@ public class MqttManager {
                     }
 
                     @Override
+                    // MqttManager.java 内部
                     public void messageArrived(String topic, MqttMessage message) {
                         String raw = new String(message.getPayload(), StandardCharsets.UTF_8);
                         try {
-                            // 调用重构后的转换方法
                             String result = MqttDataTransformer.transform(raw, pKey, sn, deviceType);
 
-                            client.publish(pubTopic, result.getBytes(StandardCharsets.UTF_8), 1, false);
-                            listener.onUpdate("🔄 [" + deviceType + "] 转换成功");
-                            logger.info("转发报文: {}", result);
+                            client.publish(pubTopic, result.getBytes(), 1, false);
+
+                            // ❌ 错误处（你现在的代码可能长这样）：
+                            // listener.onUpdate("🔄 [" + deviceType + "] 转换成功");
+
+                            // ✅ 修正处：必须把 result 拼接进去，GUI 才能看到数据
+                            listener.onUpdate("🔄 [" + deviceType + "] 转换成功: " + result);
+
+                            logger.info("🔄 转发成功: {}", result);
                         } catch (Exception e) {
-                            // 这里不再是空 catch，记录到 Log4j2
-                            logger.error("消息处理失败: {}", e.getMessage());
+                            logger.error("❌ 转发异常", e);
                             listener.onUpdate("❌ 转发异常: " + e.getMessage());
                         }
                     }
