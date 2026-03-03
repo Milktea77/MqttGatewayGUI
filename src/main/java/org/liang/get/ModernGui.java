@@ -64,7 +64,8 @@ public class ModernGui extends JFrame {
         typeLab.setAlignmentX(Component.CENTER_ALIGNMENT); // 水平居中
         leftPanel.add(typeLab);
 
-        typeCombo = new JComboBox<>(new String[]{"Switch", "PeopleSensor", "ContactSensor"});
+        // 在 createTransformerPanel 方法中修改：
+        typeCombo = new JComboBox<>(new String[]{"Switch", "PeopleSensor", "ContactSensor", "AirSensor"});
         typeCombo.setMaximumSize(new Dimension(280, 35));
         typeCombo.setAlignmentX(Component.CENTER_ALIGNMENT); // 水平居中
         leftPanel.add(typeCombo);
@@ -145,6 +146,8 @@ public class ModernGui extends JFrame {
                 "  <li><b>Switch:</b> 通用逻辑，自动排除网关字段。</li>" +
                 "  <li><b>PeopleSensor:</b> 针对人体/区域人数统计器逻辑。</li>" +
                 "  <li><b>ContactSensor:</b> 针对门磁/磁吸状态传感器逻辑。</li>" +
+                // 在 showHelpDialog 方法的解析器说明列表中添加：
+                "  <li><b>AirSensor:</b> 环境监测（温湿度/CO2/PM2.5/TVOC/气压）。</li>" +
                 "</ul>" +
                 "<b>4. 运行状态：</b><br>" +
                 "点击启动后，右侧日志将实时显示转换成功或失败的信息。" +
