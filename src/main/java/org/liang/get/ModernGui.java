@@ -10,7 +10,7 @@ public class ModernGui extends JFrame {
     private JTextField brokerF, subF, pubF, pKeyF, snF;
     private JComboBox<String> typeCombo;
     private JTextArea logArea;
-    private JButton startBtn, helpBtn; // 新增使用说明按钮
+    private JButton startBtn;
     private final MqttManager mqttManager;
     private boolean isRunning = false;
 
@@ -84,7 +84,8 @@ public class ModernGui extends JFrame {
         leftPanel.add(Box.createVerticalStrut(12));
 
         // 6. 使用说明按钮居中
-        helpBtn = new JButton(" 使用说明 ");
+        // 新增使用说明按钮
+        JButton helpBtn = new JButton(" 使用说明 ");
         helpBtn.setMaximumSize(new Dimension(220, 40));
         helpBtn.putClientProperty("JButton.buttonType", "roundRect");
         helpBtn.putClientProperty("JButton.outlineWidth", 1);
@@ -190,7 +191,7 @@ public class ModernGui extends JFrame {
         UIManager.put("TabbedPane.background", new Color(40, 40, 40));
     }
 
-    public static void main(String[] args) {
+    static void main() {
         SwingUtilities.invokeLater(() -> new ModernGui().setVisible(true));
     }
 }

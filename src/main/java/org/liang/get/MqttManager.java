@@ -61,15 +61,11 @@ public class MqttManager {
     }
 
     public IDataParser getParser(String type) {
-        switch (type) {
-            case "AirSensor":
-                return new AirSensorDecoder(); // 这里引用了类，警告就会消失
-            case "ContactSensor":
-                return new ContactSensorDecoder();
-            case "PeopleSensor":
-                return new PeopleSensorDecoder();
-            default:
-                return new SwitchDecoder(); // 你的默认解析器
-        }
+        return switch (type) {
+            case "AirSensor" -> new AirSensorDecoder();
+            case "ContactSensor" -> new ContactSensorDecoder();
+            case "PeopleSensor" -> new PeopleSensorDecoder();
+            default -> new SwitchDecoder(); // 确保 default 也有返回值
+        };
     }
 }
