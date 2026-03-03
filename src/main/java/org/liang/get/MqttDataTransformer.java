@@ -3,41 +3,38 @@ package org.liang.get;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
-import java.time.Instant;
-import java.util.HashMap;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.LinkedHashMap;
-import java.util.Map;
 
 public class MqttDataTransformer {
-    private static final Map<String, IDataParser> PARSERS = new HashMap<>();
+    private static final Logger logger = LogManager.getLogger(MqttDataTransformer.class);
 
-    static {
-        // 注册解析器，key 建议全小写方便匹配
-        PARSERS.put("switch", new SwitchDecoder());
-        PARSERS.put("peoplesensor", new PeopleSensorDecoder());
-        // 新增门磁解析器
-        PARSERS.put("contactsensor", new ContactSensorDecoder());
-    }
+    public static String transform(String rawJson, String pKey, String sn, String deviceType) {
+        try {
+            JSONObject input = JSON.parseObject(rawJson);
+            long now = System.currentTimeMillis() / 1000;
 
-    public static String transform(String rawJson, String pKey, String sn, String type) {
-        JSONObject input = JSON.parseObject(rawJson);
-        long now = Instant.now().getEpochSecond();
+            // 1. 获取对应的解析器并执行具体的业务解析
+            IDataParser parser = ParserFactory.getParser(deviceType);
+            JSONObject devItem = parser.parse(input, now);
 
-        // 根据传入的 type 选择解析器，默认使用 switch
-        IDataParser parser = PARSERS.getOrDefault(type.toLowerCase(), new SwitchDecoder());
-        JSONObject devItem = parser.parse(input, now);
+            // 2. 组装平台标准格式
+            JSONObject output = new JSONObject(new LinkedHashMap<>());
+            output.put("ver", "1.1.0");
+            output.put("pKey", pKey);
+            output.put("sn", sn);
+            output.put("ts", now);
 
-        // 组装最终报文
-        JSONObject output = new JSONObject(new LinkedHashMap<>());
-        JSONArray devsArray = new JSONArray();
-        devsArray.add(devItem);
+            JSONArray devsArray = new JSONArray();
+            devsArray.add(devItem);
+            output.put("devs", devsArray);
 
-        output.put("devs", devsArray);
-        output.put("ver", "1.1.0");
-        output.put("pKey", pKey);
-        output.put("sn", sn);
-        output.put("ts", now);
-
-        return output.toJSONString();
+            return JSON.toJSONString(output);
+        } catch (Exception e) {
+            logger.error("数据解析转换失败: {}", e.getMessage());
+            throw new RuntimeException("转换逻辑错误: " + e.getMessage());
+        }
     }
 }

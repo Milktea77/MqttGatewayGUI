@@ -1,6 +1,7 @@
 package org.liang.get;
 
 import com.formdev.flatlaf.FlatDarkLaf;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.liang.cmd.ControlCommandEngine;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -13,6 +14,7 @@ public class ModernGui extends JFrame {
     private JButton startBtn;
     private final MqttManager mqttManager;
     private boolean isRunning = false;
+    private JCheckBox logToFileCh;
 
     public ModernGui() {
         setupTheme();
@@ -71,6 +73,14 @@ public class ModernGui extends JFrame {
         leftPanel.add(typeCombo);
 
         // 4. 弹性间距推动按钮
+        leftPanel.add(Box.createVerticalStrut(25));
+
+        logToFileCh = new JCheckBox("保存运行日志到本地文件");
+        logToFileCh.setForeground(new Color(200, 200, 200));
+        logToFileCh.setAlignmentX(Component.CENTER_ALIGNMENT);
+        leftPanel.add(logToFileCh);
+        leftPanel.add(Box.createVerticalStrut(10));
+
         leftPanel.add(Box.createVerticalStrut(25));
 
         // 5. 启动按钮居中
@@ -161,10 +171,16 @@ public class ModernGui extends JFrame {
 
     private void handleService() {
         if (!isRunning) {
+            // 根据勾选状态设置系统属性，供 log4j2.xml 读取
+            System.setProperty("log.toFile", String.valueOf(logToFileCh.isSelected()));
+            // 重新加载配置以激活/禁用文件日志
+            Configurator.reconfigure();
+
             String selectedType = (String) typeCombo.getSelectedItem();
             mqttManager.start(
                     brokerF.getText(), subF.getText(), pubF.getText(),
-                    pKeyF.getText(), snF.getText(), selectedType
+                    pKeyF.getText(), snF.getText(), selectedType,
+                    logToFileCh.isSelected() // 传入复选框的勾选状态
             );
             isRunning = true;
             startBtn.setText("停止服务");
