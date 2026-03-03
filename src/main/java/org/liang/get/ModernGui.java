@@ -11,7 +11,7 @@ public class ModernGui extends JFrame {
     private JComboBox<String> typeCombo;
     private JTextArea logArea;
     private JButton startBtn, helpBtn; // 新增使用说明按钮
-    private MqttManager mqttManager;
+    private final MqttManager mqttManager;
     private boolean isRunning = false;
 
     public ModernGui() {
@@ -78,7 +78,7 @@ public class ModernGui extends JFrame {
         startBtn.setMaximumSize(new Dimension(220, 40));
         startBtn.putClientProperty("JButton.buttonType", "roundRect");
         startBtn.setAlignmentX(Component.CENTER_ALIGNMENT); // 水平居中
-        startBtn.addActionListener(e -> handleService());
+        startBtn.addActionListener(_ -> handleService());
         leftPanel.add(startBtn);
 
         leftPanel.add(Box.createVerticalStrut(12));
@@ -89,7 +89,7 @@ public class ModernGui extends JFrame {
         helpBtn.putClientProperty("JButton.buttonType", "roundRect");
         helpBtn.putClientProperty("JButton.outlineWidth", 1);
         helpBtn.setAlignmentX(Component.CENTER_ALIGNMENT); // 水平居中
-        helpBtn.addActionListener(e -> showHelpDialog());
+        helpBtn.addActionListener(_ -> showHelpDialog());
         leftPanel.add(helpBtn);
 
         // --- 右侧日志区 ---

@@ -59,4 +59,17 @@ public class MqttManager {
     public void stop() {
         try { if (client != null) client.disconnect(); } catch (Exception e) {}
     }
+
+    public IDataParser getParser(String type) {
+        switch (type) {
+            case "AirSensor":
+                return new AirSensorDecoder(); // 这里引用了类，警告就会消失
+            case "ContactSensor":
+                return new ContactSensorDecoder();
+            case "PeopleSensor":
+                return new PeopleSensorDecoder();
+            default:
+                return new SwitchDecoder(); // 你的默认解析器
+        }
+    }
 }
