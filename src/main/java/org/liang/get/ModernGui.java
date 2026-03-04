@@ -1,11 +1,23 @@
 package org.liang.get;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import com.formdev.flatlaf.FlatDarkLaf;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.liang.cmd.ControlCommandEngine;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalTime;
 
 public class ModernGui extends JFrame {
     private JTextField brokerF, subF, pubF, pKeyF, snF;
@@ -16,19 +28,25 @@ public class ModernGui extends JFrame {
     private boolean isRunning = false;
     private JCheckBox logToFileCh;
 
+    // 配置文件路径
+    private static final String CONFIG_DIR = "configs";
+    private static final String CONFIG_FILE = CONFIG_DIR + "/settings.json";
+
+    private static final Logger logger =
+            LogManager.getLogger(ModernGui.class);
+
     public ModernGui() {
+        initDirectories(); // 初始化目录
         setupTheme();
         setTitle("LoRA/星纵 MQTT报文转换器");
-        setSize(1100, 750);
+        setSize(1100, 800);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
         mqttManager = new MqttManager(this::appendLog);
 
         JTabbedPane tabbedPane = new JTabbedPane();
-        // 设置选项卡区域深色背景以统一视觉
         tabbedPane.putClientProperty("JTabbedPane.tabType", "card");
-
         tabbedPane.addTab(" 数据协议转换 ", createTransformerPanel());
 
         try {
@@ -39,74 +57,73 @@ public class ModernGui extends JFrame {
         }
 
         add(tabbedPane);
+        loadConfig(); // 加载配置
+    }
+
+    private void initDirectories() {
+        try {
+            Files.createDirectories(Paths.get("logs"));
+            Files.createDirectories(Paths.get(CONFIG_DIR));
+        } catch (IOException e) {
+            System.err.println("无法创建必要目录: " + e.getMessage());
+        }
     }
 
     private JPanel createTransformerPanel() {
-        // 1. 创建主面板，背景设置为深色调
-        JPanel panel = new JPanel(new  BorderLayout(15, 15));
+        JPanel panel = new JPanel(new BorderLayout(15, 15));
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
         panel.setBackground(new Color(35, 35, 35));
 
-        // --- 左侧配置区 ---
         JPanel leftPanel = new JPanel();
         leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.Y_AXIS));
         leftPanel.setPreferredSize(new Dimension(300, 0));
-        leftPanel.setOpaque(false); // 使其背景透明，透出 panel 的颜色
+        leftPanel.setOpaque(false);
 
-        // 2. 添加输入组件，内部已处理对齐
         brokerF = addInput(leftPanel, "服务器地址:", "tcp://192.168.5.218:1883");
         subF = addInput(leftPanel, "订阅原始主题:", "/LoRA_Message/+/get");
         pubF = addInput(leftPanel, "发布标准主题:", "/LoRA_Message/transformed");
         pKeyF = addInput(leftPanel, "Product Key:", "Light");
         snF = addInput(leftPanel, "Serial Number:", "003");
 
-        // 3. 解析器选择器居中处理
         JLabel typeLab = new JLabel("解析器类型:");
         typeLab.setForeground(new Color(200, 200, 200));
-        typeLab.setAlignmentX(Component.CENTER_ALIGNMENT); // 水平居中
+        typeLab.setAlignmentX(Component.CENTER_ALIGNMENT);
         leftPanel.add(typeLab);
 
-        // 在 createTransformerPanel 方法中修改：
-        typeCombo = new JComboBox<>(new String[]{"Switch", "PeopleSensor", "ContactSensor", "AirSensor"});
+        // 使用 ParserFactory 获取解析器列表，解决“未使用”警告
+        typeCombo = new JComboBox<>(ParserFactory.getParserNames());
         typeCombo.setMaximumSize(new Dimension(280, 35));
-        typeCombo.setAlignmentX(Component.CENTER_ALIGNMENT); // 水平居中
+        typeCombo.setAlignmentX(Component.CENTER_ALIGNMENT);
         leftPanel.add(typeCombo);
 
-        // 4. 弹性间距推动按钮
-        leftPanel.add(Box.createVerticalStrut(25));
+        leftPanel.add(Box.createVerticalStrut(20));
 
         logToFileCh = new JCheckBox("保存运行日志到本地文件");
         logToFileCh.setForeground(new Color(200, 200, 200));
         logToFileCh.setAlignmentX(Component.CENTER_ALIGNMENT);
         leftPanel.add(logToFileCh);
-        leftPanel.add(Box.createVerticalStrut(10));
 
         leftPanel.add(Box.createVerticalStrut(25));
 
-        // 5. 启动按钮居中
-        startBtn = new JButton("启动转换服务");
-        startBtn.setMaximumSize(new Dimension(220, 40));
-        startBtn.putClientProperty("JButton.buttonType", "roundRect");
-        startBtn.setAlignmentX(Component.CENTER_ALIGNMENT); // 水平居中
+        // 按钮组
+        startBtn = createStyledButton("启动转换服务", new Color(76, 175, 80));
         startBtn.addActionListener(_ -> handleService());
         leftPanel.add(startBtn);
-
         leftPanel.add(Box.createVerticalStrut(12));
 
-        // 6. 使用说明按钮居中
-        // 新增使用说明按钮
-        JButton helpBtn = new JButton(" 使用说明 ");
-        helpBtn.setMaximumSize(new Dimension(220, 40));
-        helpBtn.putClientProperty("JButton.buttonType", "roundRect");
-        helpBtn.putClientProperty("JButton.outlineWidth", 1);
-        helpBtn.setAlignmentX(Component.CENTER_ALIGNMENT); // 水平居中
+        JButton helpBtn = createStyledButton(" 使用说明 ", null);
         helpBtn.addActionListener(_ -> showHelpDialog());
         leftPanel.add(helpBtn);
+        leftPanel.add(Box.createVerticalStrut(12));
 
-        // --- 右侧日志区 ---
+        // 新增：打开目录按钮
+        JButton folderBtn = createStyledButton(" 打开程序目录 ", null);
+        folderBtn.addActionListener(_ -> openWorkDir());
+        leftPanel.add(folderBtn);
+
         logArea = new JTextArea();
         logArea.setEditable(false);
-        logArea.setBackground(new Color(25, 25, 25)); // 保持深色背景
+        logArea.setBackground(new Color(25, 25, 25));
         logArea.setForeground(new Color(180, 180, 180));
         logArea.setFont(new Font("Microsoft Yahei", Font.PLAIN, 12));
         logArea.setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -116,86 +133,121 @@ public class ModernGui extends JFrame {
 
         panel.add(leftPanel, BorderLayout.WEST);
         panel.add(scrollPane, BorderLayout.CENTER);
-
         return panel;
     }
 
-    /**
-     * 配合使用的 addInput 辅助方法，确保所有配置组件都居中对齐
-     */
+    private JButton createStyledButton(String text, Color bg) {
+        JButton btn = new JButton(text);
+        btn.setMaximumSize(new Dimension(220, 40));
+        btn.putClientProperty("JButton.buttonType", "roundRect");
+        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        if (bg != null) btn.setBackground(bg);
+        return btn;
+    }
+
+    private void openWorkDir() {
+        try {
+            Desktop.getDesktop().open(new File("."));
+        } catch (IOException e) {
+            appendLog("❌ 无法打开目录: " + e.getMessage());
+        }
+    }
+
+    private void saveConfig() {
+        JSONObject json = new JSONObject();
+        json.put("broker", brokerF.getText());
+        json.put("sub", subF.getText());
+        json.put("pub", pubF.getText());
+        json.put("pKey", pKeyF.getText());
+        json.put("sn", snF.getText());
+        json.put("type", typeCombo.getSelectedItem());
+        json.put("logEnabled", logToFileCh.isSelected());
+
+        try {
+            Files.writeString(Paths.get(CONFIG_FILE), json.toJSONString(), StandardCharsets.UTF_8);
+            appendLog("💾 配置已自动保存");
+        } catch (IOException e) {
+            appendLog("⚠️ 配置保存失败: " + e.getMessage());
+        }
+    }
+
+    private void loadConfig() {
+        Path path = Paths.get(CONFIG_FILE);
+        if (!Files.exists(path)) return;
+
+        try {
+            String content = Files.readString(path, StandardCharsets.UTF_8);
+            JSONObject json = JSON.parseObject(content);
+
+            brokerF.setText(json.getString("broker"));
+            subF.setText(json.getString("sub"));
+            pubF.setText(json.getString("pub"));
+            pKeyF.setText(json.getString("pKey"));
+            snF.setText(json.getString("sn"));
+            typeCombo.setSelectedItem(json.getString("type"));
+            logToFileCh.setSelected(json.getBooleanValue("logEnabled"));
+
+            // ✅ 修正：同步记录到本地日志文件
+            logger.info("📂 已从本地加载历史配置: {}", CONFIG_FILE);
+            appendLog("📂 已从本地加载历史配置");
+        } catch (Exception e) {
+            logger.error("⚠️ 配置文件读取异常", e);
+            appendLog("⚠️ 配置文件读取异常");
+        }
+    }
+
     private JTextField addInput(JPanel p, String lab, String def) {
         JLabel label = new JLabel(lab);
         label.setForeground(new Color(200, 200, 200));
-        label.setAlignmentX(Component.CENTER_ALIGNMENT); // 标签水平居中
+        label.setAlignmentX(Component.CENTER_ALIGNMENT);
         p.add(label);
 
         JTextField f = new JTextField(def);
         f.setMaximumSize(new Dimension(280, 35));
-        f.setAlignmentX(Component.CENTER_ALIGNMENT); // 输入框水平居中
-//        f.setHorizontalAlignment(JTextField.CENTER); // 文字内容居中
+        f.setAlignmentX(Component.CENTER_ALIGNMENT);
         p.add(f);
-
         p.add(Box.createVerticalStrut(10));
         return f;
     }
 
-    // --- 新增：弹出帮助对话框的方法 ---
     private void showHelpDialog() {
-        String helpText = "<html>" +
-                "<body style='width: 350px; padding: 10px; font-family: Microsoft YaHei;'>" +
-                "<h2 style='color: #4CAF50;'>📖 使用说明</h2>" +
-                "<hr>" +
-                "<b>1. 服务器配置：</b><br>" +
-                "输入 MQTT Broker 的地址（如 tcp://ip:1883）。<br><br>" +
-                "<b>2. 主题配置：</b><br>" +
-                "<ul>" +
-                "  <li><b>订阅主题：</b>网关接收 LoRA 设备原始报文的主题。</li>" +
-                "  <li><b>发布主题：</b>网关将转换后的标准 JSON 发送到的主题。</li>" +
-                "</ul>" +
-                "<b>3. 解析器选择：</b><br>" +
-                "<ul>" +
-                "  <li><b>Switch:</b> 通用逻辑，自动排除网关字段。</li>" +
-                "  <li><b>PeopleSensor:</b> 针对人体/区域人数统计器逻辑。</li>" +
-                "  <li><b>ContactSensor:</b> 针对门磁/磁吸状态传感器逻辑。</li>" +
-                // 在 showHelpDialog 方法的解析器说明列表中添加：
-                "  <li><b>AirSensor:</b> 环境监测（温湿度/CO2/PM2.5/TVOC/气压）。</li>" +
-                "</ul>" +
-                "<b>4. 运行状态：</b><br>" +
-                "点击启动后，右侧日志将实时显示转换成功或失败的信息。" +
-                "<hr>" +
-                "<footer style='font-size: 10px; color: gray;'>v2.1 合并版 | 基于 FlatLaf 现代主题</footer>" +
+        String helpText = "<html><body style='width: 350px; padding: 10px; font-family: Microsoft YaHei;'>" +
+                "<h2 style='color: #4CAF50;'>📖 使用说明</h2><hr>" +
+                "<b>配置已支持自动保存：</b> 每次点击启动服务，当前配置将存入 configs 目录。<br><br>" +
+                "<b>解析器说明：</b><br>" +
+                "<ul><li><b>AirSensor:</b> 环境监测（温度/CO2/PM等）</li>" +
+                "<li><b>Switch:</b> 通用开关逻辑</li></ul>" +
                 "</body></html>";
-
         JOptionPane.showMessageDialog(this, helpText, "使用指南", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void handleService() {
         if (!isRunning) {
-            // 根据勾选状态设置系统属性，供 log4j2.xml 读取
+            saveConfig(); // 启动前保存当前输入的配置
             System.setProperty("log.toFile", String.valueOf(logToFileCh.isSelected()));
-            // 重新加载配置以激活/禁用文件日志
             Configurator.reconfigure();
 
-            String selectedType = (String) typeCombo.getSelectedItem();
             mqttManager.start(
                     brokerF.getText(), subF.getText(), pubF.getText(),
-                    pKeyF.getText(), snF.getText(), selectedType,
-                    logToFileCh.isSelected() // 传入复选框的勾选状态
+                    pKeyF.getText(), snF.getText(), (String) typeCombo.getSelectedItem(),
+                    logToFileCh.isSelected()
             );
+            logger.info("🚀 转换服务启动 [类型: {}]", typeCombo.getSelectedItem());
             isRunning = true;
             startBtn.setText("停止服务");
             startBtn.setBackground(new Color(180, 50, 50));
         } else {
             mqttManager.stop();
+            logger.info("🛑 转换服务已停止");
             isRunning = false;
             startBtn.setText("启动转换服务");
-            startBtn.setBackground(null);
+            startBtn.setBackground(new Color(76, 175, 80));
         }
     }
 
     private void appendLog(String msg) {
         SwingUtilities.invokeLater(() -> {
-            logArea.append("[" + java.time.LocalTime.now().withNano(0) + "] " + msg + "\n");
+            logArea.append("[" + LocalTime.now().withNano(0) + "] " + msg + "\n");
             logArea.setCaretPosition(logArea.getDocument().getLength());
         });
     }
@@ -203,8 +255,6 @@ public class ModernGui extends JFrame {
     private void setupTheme() {
         FlatDarkLaf.setup();
         UIManager.put("defaultFont", new Font("Microsoft YaHei", Font.PLAIN, 13));
-        UIManager.put("TabbedPane.showTabSeparators", true);
-        UIManager.put("TabbedPane.background", new Color(40, 40, 40));
     }
 
     static void main() {

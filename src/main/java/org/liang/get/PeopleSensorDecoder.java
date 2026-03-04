@@ -10,27 +10,27 @@ public class PeopleSensorDecoder implements IDataParser {
         JSONObject devItem = new JSONObject(new LinkedHashMap<>());
         JSONArray dArray = new JSONArray();
 
-        // 1. 提取功能点：将 current_total 转换为标准格式
-        if (input.containsKey("current_total")) {
-            JSONObject metric = new JSONObject(new LinkedHashMap<>());
-            // v: 对应 current_total 的数值 (4)
-            metric.put("v", input.get("current_total"));
-            metric.put("dq", 0);
-            // m: 对应键名 "current_total"
-            metric.put("m", "current_total");
-            metric.put("ts", now);
-            dArray.add(metric);
+        // 定义需要兼容的人数统计字段名
+        String[] targetKeys = {"people_count_all", "current_total"};
+
+        for (String key : targetKeys) {
+            if (input.containsKey(key)) {
+                JSONObject metric = new JSONObject(new LinkedHashMap<>());
+                // v: 提取对应的数值
+                metric.put("v", input.get(key));
+                metric.put("dq", 0);
+                // m: 保持原样，报文里是哪个 key，解析出来就是哪个 key
+                metric.put("m", key);
+                metric.put("ts", now);
+                dArray.add(metric);
+            }
         }
 
-        // 2. 提取设备标识：从 device_info 层级中获取 device_sn
-        String devSn = "";
-        JSONObject deviceInfo = input.getJSONObject("device_info");
-        if (deviceInfo != null) {
-            devSn = deviceInfo.getString("device_sn");
-        }
+        // 提取设备标识：统一从 devEUI 提取
+        String devSn = input.getString("devEUI");
 
         devItem.put("d", dArray);
-        devItem.put("dev", devSn);
+        devItem.put("dev", devSn != null ? devSn : "");
 
         return devItem;
     }

@@ -12,6 +12,7 @@ public class ParserFactory {
         parsers.put("ContactSensor", new ContactSensorDecoder());
         parsers.put("PeopleSensor", new PeopleSensorDecoder());
         parsers.put("Switch", new SwitchDecoder());
+        parsers.put("DuctlessAC", new DuctlessAcDecoder());
     }
 
     /**
@@ -22,12 +23,13 @@ public class ParserFactory {
             case "AirSensor" -> parsers.get("AirSensor");
             case "ContactSensor" -> parsers.get("ContactSensor");
             case "PeopleSensor" -> parsers.get("PeopleSensor");
+            case "DuctlessAcDecoder"  -> parsers.get("DuctlessAC");
             default -> parsers.get("Switch");
         };
     }
 
-    // 提供给 GUI 下拉框使用，避免硬编码
-//    public static String[] getParserNames() {
-//        return parsers.keySet().toArray(new String[0]);
-//    }
+//     提供给 GUI 下拉框使用，避免硬编码
+    public static String[] getParserNames() {
+        return parsers.keySet().toArray(new String[0]);
+    }
 }

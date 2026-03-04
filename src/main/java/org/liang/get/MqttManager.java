@@ -58,21 +58,20 @@ public class MqttManager {
                     }
 
                     @Override
-                    // MqttManager.java 内部
                     public void messageArrived(String topic, MqttMessage message) {
                         String raw = new String(message.getPayload(), StandardCharsets.UTF_8);
                         try {
+                            // 执行转换逻辑
                             String result = MqttDataTransformer.transform(raw, pKey, sn, deviceType);
 
-                            client.publish(pubTopic, result.getBytes(), 1, false);
+                            // --- 修改处：将最后一个参数 false 改为 true ---
+                            // 参数说明: 主题, 负载字节数组, QoS(1), Retained(true)
+                            client.publish(pubTopic, result.getBytes(StandardCharsets.UTF_8), 1, true);
 
-                            // ❌ 错误处（你现在的代码可能长这样）：
-                            // listener.onUpdate("🔄 [" + deviceType + "] 转换成功");
+                            // 同步更新 GUI 界面
+                            listener.onUpdate("🔄 [" + deviceType + "] 转换成功(Retained): " + result);
 
-                            // ✅ 修正处：必须把 result 拼接进去，GUI 才能看到数据
-                            listener.onUpdate("🔄 [" + deviceType + "] 转换成功: " + result);
-
-                            logger.info("🔄 转发成功: {}", result);
+                            logger.info("🔄 转发成功(已设置保留消息): {}", result);
                         } catch (Exception e) {
                             logger.error("❌ 转发异常", e);
                             listener.onUpdate("❌ 转发异常: " + e.getMessage());
