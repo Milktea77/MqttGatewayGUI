@@ -8,11 +8,13 @@ public class ParserFactory {
     private static final Map<String, IDataParser> parsers = new LinkedHashMap<>();
 
     static {
+        parsers.put("GenericSensorDecoder", new GenericSensorDecoder());
         parsers.put("AirSensor", new AirSensorDecoder());
         parsers.put("ContactSensor", new ContactSensorDecoder());
         parsers.put("PeopleSensor", new PeopleSensorDecoder());
         parsers.put("Switch", new SwitchDecoder());
         parsers.put("DuctlessAC", new DuctlessAcDecoder());
+        parsers.put("OccupancySensorDecoder", new  OccupancySensorDecoder());
     }
 
     /**
@@ -24,7 +26,9 @@ public class ParserFactory {
             case "ContactSensor" -> parsers.get("ContactSensor");
             case "PeopleSensor" -> parsers.get("PeopleSensor");
             case "DuctlessAcDecoder"  -> parsers.get("DuctlessAC");
-            default -> parsers.get("Switch");
+            case "OccupancySensorDecoder" -> parsers.get("OccupancySensorDecoder");
+            case "SwitchDecoder" -> parsers.get("SwitchDecoder");
+            default -> parsers.get("GenericSensorDecoder");
         };
     }
 

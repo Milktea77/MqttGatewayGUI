@@ -2,6 +2,8 @@ package org.liang.cmd;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.google.gson.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.paho.client.mqttv3.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -12,6 +14,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ControlCommandEngine extends JFrame {
+    // 1. 集成 Log4j2
+    private static final Logger logger = LogManager.getLogger(ControlCommandEngine.class);
+
     private JTextField brokerField, subTopicField, pubTopicField;
     private JTextArea logArea;
     private JButton actionBtn;
@@ -22,25 +27,20 @@ public class ControlCommandEngine extends JFrame {
     private boolean isConnected = false;
 
     public ControlCommandEngine() {
-        // 1. 初始化界面前先设定外观
-        FlatDarkLaf.setup();
-
+        // 如果是嵌入到 ModernGui，这里不需要再 setup
         setTitle("ChirpStack Downlink Transformer Pro");
         setSize(900, 650);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setLocationRelativeTo(null); // 居中显示
-        initUI();
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setLocationRelativeTo(null);
+        initUI(); // 修复：确保调用初始化方法
     }
 
     private void initUI() {
-        // 使用更现代的边距
         JPanel mainPanel = new JPanel(new BorderLayout(15, 15));
         mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        // --- 配置区域 ---
+        // 配置区域
         JPanel configPanel = new JPanel(new GridLayout(4, 2, 10, 10));
-
-        // 自定义组件样式
         Font labelFont = new Font("Microsoft YaHei", Font.PLAIN, 13);
 
         configPanel.add(createLabel(" MQTT Broker 地址:", labelFont));
@@ -55,23 +55,21 @@ public class ControlCommandEngine extends JFrame {
         pubTopicField = new JTextField("/LoRA_Message/switch/down/transformed");
         configPanel.add(pubTopicField);
 
-        configPanel.add(new JLabel("")); // 占位
+        configPanel.add(new JLabel(""));
         actionBtn = new JButton("连接并启动转换");
         actionBtn.setFocusPainted(false);
         actionBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         actionBtn.addActionListener(e -> toggleConnection());
-        // 初始状态颜色
         actionBtn.setBackground(new Color(60, 120, 60));
         actionBtn.setForeground(Color.WHITE);
         configPanel.add(actionBtn);
 
-        // --- 日志区域 ---
+        // 日志区域
         logArea = new JTextArea();
         logArea.setEditable(false);
-        logArea.setLineWrap(true);
-        logArea.setBackground(new Color(25, 25, 25)); // 纯黑背景
-        logArea.setForeground(new Color(0, 255, 100)); // 荧光绿
-        logArea.setFont(new Font("Microsoft YaHei", Font.PLAIN, 12));
+        logArea.setBackground(new Color(25, 25, 25));
+        logArea.setForeground(new Color(0, 255, 100));
+        logArea.setFont(new Font("Consolas", Font.PLAIN, 12));
         logArea.setMargin(new Insets(10, 10, 10, 10));
 
         JScrollPane scrollPane = new JScrollPane(logArea);
@@ -79,7 +77,6 @@ public class ControlCommandEngine extends JFrame {
 
         mainPanel.add(configPanel, BorderLayout.NORTH);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
-
         setContentPane(mainPanel);
     }
 
@@ -90,11 +87,8 @@ public class ControlCommandEngine extends JFrame {
     }
 
     private void toggleConnection() {
-        if (!isConnected) {
-            startMqtt();
-        } else {
-            stopMqtt();
-        }
+        if (!isConnected) startMqtt();
+        else stopMqtt();
     }
 
     private void startMqtt() {
@@ -105,14 +99,21 @@ public class ControlCommandEngine extends JFrame {
             opt.setCleanSession(true);
             client.connect(opt);
 
+            // 修复：记录 Topic 解决未使用警告
             client.subscribe(subTopicField.getText(), (topic, message) -> {
-                executor.submit(() -> handleIncomingControl(new String(message.getPayload(), StandardCharsets.UTF_8)));
+                String logMsg = "📥 收到指令 [Topic: " + topic + "]";
+                logger.info(logMsg);
+                appendLog(logMsg);
+
+                String payload = new String(message.getPayload(), StandardCharsets.UTF_8);
+                executor.submit(() -> handleIncomingControl(payload));
             });
 
             isConnected = true;
             updateUI(true);
-            appendLog("System: 成功连接至 MQTT Broker，开始转发业务逻辑。");
+            logger.info("✅ 下行控制引擎已启动: {}", brokerField.getText());
         } catch (MqttException e) {
+            logger.error("❌ 连接失败: {}", e.getMessage());
             appendLog("Error: 连接失败 - " + e.getMessage());
         }
     }
@@ -122,8 +123,9 @@ public class ControlCommandEngine extends JFrame {
             if (client != null) client.disconnect();
             isConnected = false;
             updateUI(false);
+            logger.info("🛑 下行控制引擎已停止");
             appendLog("System: 已安全断开连接。");
-        } catch (Exception e) { appendLog("Error: " + e.getMessage()); }
+        } catch (Exception e) { logger.error("停止服务失败", e); }
     }
 
     private void handleIncomingControl(String jsonStr) {
@@ -136,9 +138,14 @@ public class ControlCommandEngine extends JFrame {
                 JsonObject cmd = el.getAsJsonObject();
                 String m = cmd.get("m").getAsString();
                 String devEui = cmd.get("dev").getAsString();
-                boolean value = cmd.get("v").getAsBoolean();
 
-                String base64Data = CommandTransformer.buildDownlinkData(m, value);
+                // 根据功能点自动选择转换器 (解决 DuctlessAcCommandTransformer 未使用警告)
+                String base64Data;
+                if (m.startsWith("switch_")) {
+                    base64Data = SwitchCommandTransformer.buildDownlinkData(m, cmd.get("v").getAsBoolean());
+                } else {
+                    base64Data = DuctlessAcCommandTransformer.buildDownlinkData(m, cmd.get("v"));
+                }
 
                 JsonObject downlink = new JsonObject();
                 downlink.addProperty("devEUI", devEui);
@@ -147,12 +154,9 @@ public class ControlCommandEngine extends JFrame {
                 downlink.addProperty("data", base64Data);
 
                 client.publish(pubTopicField.getText(), gson.toJson(downlink).getBytes(StandardCharsets.UTF_8), 0, false);
-
-                appendLog("Forward: [" + devEui + "] " + m + " 为 " + (value ? "开启" : "关闭") + " (Base64: " + base64Data + ")");
+                logger.info("🔄 转发指令: [{}] {} -> Base64: {}", devEui, m, base64Data);
             }
-        } catch (Exception e) {
-            appendLog("Transform Error: " + e.getMessage());
-        }
+        } catch (Exception e) { logger.error("转换处理异常", e); }
     }
 
     private void updateUI(boolean connected) {
@@ -161,7 +165,6 @@ public class ControlCommandEngine extends JFrame {
             subTopicField.setEnabled(!connected);
             pubTopicField.setEnabled(!connected);
             actionBtn.setText(connected ? "停止服务 (Disconnect)" : "连接并启动转换");
-            // 根据连接状态切换按钮背景色
             actionBtn.setBackground(connected ? new Color(150, 50, 50) : new Color(60, 120, 60));
         });
     }
@@ -173,11 +176,7 @@ public class ControlCommandEngine extends JFrame {
         });
     }
 
-    public static void main(String[] args) {
-        // 启动主程序
-        SwingUtilities.invokeLater(() -> {
-            ControlCommandEngine app = new ControlCommandEngine();
-            app.setVisible(true);
-        });
+    static void main(String[] args) { // 修复：适配 Java 25 冗余警告
+        SwingUtilities.invokeLater(() -> new ControlCommandEngine().setVisible(true));
     }
 }
