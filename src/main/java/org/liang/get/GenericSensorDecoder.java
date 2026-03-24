@@ -30,6 +30,11 @@ public class GenericSensorDecoder implements IDataParser {
                 continue;
             }
 
+            // 跳过嵌套复杂对象（LoRa 网络层元数据，不适合作为标量指标上报）
+            if ("rxInfo".equals(key) || "txInfo".equals(key)) {
+                continue;
+            }
+
             // 过滤不需要作为指标上报的元数据 (可选，如需完全原样则注释掉以下判断)
 //            if ("applicationID".equals(key) || "deviceName".equals(key) || "gatewayTime".equals(key)) {
 //                continue;
