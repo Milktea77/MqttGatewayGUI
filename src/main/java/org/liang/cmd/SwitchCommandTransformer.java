@@ -2,7 +2,7 @@ package org.liang.cmd;
 
 import java.util.Base64;
 
-public class CommandTransformer {
+public class SwitchCommandTransformer {
     public static String buildDownlinkData(String m, boolean value) {
         int changeBit = 0;
         int stateBit = 0;

@@ -236,6 +236,11 @@ public class ModernGui extends JFrame {
             isRunning = true;
             startBtn.setText("停止服务");
             startBtn.setBackground(new Color(180, 50, 50));
+
+            // 直接通过代码动态开关文件日志
+            org.apache.logging.log4j.Level level = logToFileCh.isSelected() ?
+                    org.apache.logging.log4j.Level.INFO : org.apache.logging.log4j.Level.OFF;
+            Configurator.setLevel("RollingFile", level);
         } else {
             mqttManager.stop();
             logger.info("🛑 转换服务已停止");

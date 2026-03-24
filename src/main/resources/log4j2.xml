@@ -11,20 +11,14 @@
 
         <RollingFile name="RollingFile"
                      fileName="${LOG_PATH}/app.log"
-                     filePattern="${LOG_PATH}/app-%d{yyyy-MM-dd}.log"
+                     filePattern="${LOG_PATH}/app_%d{yyyy-MM-dd}.log"
                      immediateFlush="true">
             <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
                 <SizeBasedTriggeringPolicy size="100 MB"/>
             </Policies>
-            <DefaultRolloverStrategy max="30"/> <Filters>
-            <ScriptFilter onMatch="ACCEPT" onMismatch="DENY">
-                <Script name="CheckConfig" language="JavaScript"><![CDATA[
-                        java.lang.System.getProperty("log.toFile") == "true";
-                    ]]></Script>
-            </ScriptFilter>
-        </Filters>
+            <DefaultRolloverStrategy max="30"/>
         </RollingFile>
     </Appenders>
 
