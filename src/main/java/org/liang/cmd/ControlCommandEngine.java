@@ -17,8 +17,8 @@ import java.util.concurrent.Executors;
 public class ControlCommandEngine extends JFrame {
     private static final Logger logger = LogManager.getLogger(ControlCommandEngine.class);
 
-    private JTextField brokerField, subTopicField, pubTopicField;
-    private JComboBox<String> categoryCombo; // ✅ 新增下拉框
+    private JTextField brokerField, subTopicField, pubTopicField, fPortField;
+    private JComboBox<String> categoryCombo;
     private JTextArea logArea;
     private JButton actionBtn;
     private JCheckBox logToFileCh;
@@ -39,7 +39,7 @@ public class ControlCommandEngine extends JFrame {
         JPanel mainPanel = new JPanel(new BorderLayout(15, 15));
         mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        JPanel configPanel = new JPanel(new GridLayout(6, 2, 10, 10)); // 增加一行
+        JPanel configPanel = new JPanel(new GridLayout(6, 2, 10, 10));
 
         configPanel.add(new JLabel(" MQTT Broker 地址:"));
         brokerField = new JTextField("tcp://192.168.5.218:1883");
@@ -53,10 +53,13 @@ public class ControlCommandEngine extends JFrame {
         pubTopicField = new JTextField("/LoRA_Message/switch/down/transformed");
         configPanel.add(pubTopicField);
 
-        // ✅ 下拉框配置
         configPanel.add(new JLabel(" 目标设备转换协议:"));
-        categoryCombo = new JComboBox<>(new String[]{"Switch", "DuctlessAC"});
+        categoryCombo = new JComboBox<>(DownlinkPayloadTransformer.getCategories());
         configPanel.add(categoryCombo);
+
+        configPanel.add(new JLabel(" 下行端口 fPort (常用: 10 / 85):"));
+        fPortField = new JTextField("85");
+        configPanel.add(fPortField);
 
         logToFileCh = new JCheckBox("同步写入本地日志文件 (Rolling File)");
         logToFileCh.setSelected(true);
@@ -135,8 +138,15 @@ public class ControlCommandEngine extends JFrame {
                 Object v = cmd.get("v").isJsonPrimitive() && cmd.get("v").getAsJsonPrimitive().isBoolean()
                         ? cmd.get("v").getAsBoolean() : cmd.get("v").getAsString();
 
-                // ✅ 核心转换：传入选好的类型
-                String finalMqttJson = DownlinkPayloadTransformer.pack(selectedCategory, devEui, m, v);
+                int fPort;
+                try {
+                    fPort = Integer.parseInt(fPortField.getText().trim());
+                } catch (NumberFormatException e) {
+                    appendLog("❌ fPort 输入有误，请填写数字（如 85 或 10）");
+                    return;
+                }
+
+                String finalMqttJson = DownlinkPayloadTransformer.pack(selectedCategory, devEui, m, v, fPort);
 
                 client.publish(pubTopicField.getText(), finalMqttJson.getBytes(StandardCharsets.UTF_8), 0, false);
 
@@ -165,7 +175,8 @@ public class ControlCommandEngine extends JFrame {
             brokerField.setEnabled(!connected);
             subTopicField.setEnabled(!connected);
             pubTopicField.setEnabled(!connected);
-            categoryCombo.setEnabled(!connected); // 运行中禁止切换类型
+            categoryCombo.setEnabled(!connected);
+            fPortField.setEnabled(!connected);
             actionBtn.setText(connected ? "停止服务 (Disconnect)" : "连接并启动转换");
             actionBtn.setBackground(connected ? new Color(150, 50, 50) : new Color(60, 120, 60));
         });

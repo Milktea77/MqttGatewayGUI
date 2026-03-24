@@ -2,8 +2,15 @@ package org.liang.cmd;
 
 import java.util.Base64;
 
-public class SwitchCommandTransformer {
-    public static String buildDownlinkData(String m, boolean value) {
+public class SwitchCommandTransformer implements ICommandTransformer {
+
+    @Override
+    public String buildDownlinkData(String m, Object v) {
+        boolean value = (v instanceof Boolean) ? (Boolean) v : Boolean.parseBoolean(String.valueOf(v));
+        return encode(m, value);
+    }
+
+    private static String encode(String m, boolean value) {
         int changeBit = 0;
         int stateBit = 0;
 

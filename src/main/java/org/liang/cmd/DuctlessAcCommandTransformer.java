@@ -8,9 +8,10 @@ import java.util.Base64;
  * Milesight WT303 风管机面板下行指令转换器
  * 对照手册指令解析：
  */
-public class DuctlessAcCommandTransformer {
+public class DuctlessAcCommandTransformer implements ICommandTransformer {
 
-    public static String buildDownlinkData(String m, Object value) {
+    @Override
+    public String buildDownlinkData(String m, Object value) {
         byte[] payload;
 
         switch (m) {
