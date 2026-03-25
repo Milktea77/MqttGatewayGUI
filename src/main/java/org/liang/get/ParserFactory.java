@@ -14,7 +14,8 @@ public class ParserFactory {
         parsers.put("PeopleSensor", new PeopleSensorDecoder());
         parsers.put("Switch", new SwitchDecoder());
         parsers.put("DuctlessAC", new DuctlessAcDecoder());
-        parsers.put("OccupancySensorDecoder", new  OccupancySensorDecoder());
+        parsers.put("OccupancySensorDecoder", new OccupancySensorDecoder());
+        parsers.put("WS136SSPanel", new WS136SSPanel());
     }
 
     /**
@@ -28,6 +29,7 @@ public class ParserFactory {
             case "DuctlessAcDecoder"  -> parsers.get("DuctlessAC");
             case "OccupancySensorDecoder" -> parsers.get("OccupancySensorDecoder");
             case "SwitchDecoder" -> parsers.get("SwitchDecoder");
+            case "WS136SSPanel" -> parsers.get("WS136SSPanel");
             default -> parsers.get("GenericSensorDecoder");
         };
     }
