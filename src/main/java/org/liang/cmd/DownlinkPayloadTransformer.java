@@ -24,6 +24,7 @@ public class DownlinkPayloadTransformer {
         register("Switch",     new SwitchCommandTransformer());
         register("DuctlessAC", new DuctlessAcCommandTransformer());
         register("WS51x",      new WS51xCommandTransformer());
+        register("WS52x",      new WS51xCommandTransformer()); // 协议与 WS51x 完全相同，共用同一 Transformer
     }
 
     /** 注册设备类型（也可在运行时动态调用） */
