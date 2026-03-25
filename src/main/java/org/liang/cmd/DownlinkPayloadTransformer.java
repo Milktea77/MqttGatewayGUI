@@ -23,6 +23,7 @@ public class DownlinkPayloadTransformer {
         // ↓↓↓ 新增设备：在此处追加 register() 一行即可 ↓↓↓
         register("Switch",     new SwitchCommandTransformer());
         register("DuctlessAC", new DuctlessAcCommandTransformer());
+        register("WS51x",      new WS51xCommandTransformer());
     }
 
     /** 注册设备类型（也可在运行时动态调用） */
