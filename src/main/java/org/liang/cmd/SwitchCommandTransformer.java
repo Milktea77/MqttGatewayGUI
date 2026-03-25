@@ -2,6 +2,8 @@ package org.liang.cmd;
 
 import java.util.Base64;
 
+// /LoRa/Switch/down
+
 public class SwitchCommandTransformer implements ICommandTransformer {
 
     @Override

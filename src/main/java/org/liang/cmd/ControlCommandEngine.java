@@ -1,6 +1,8 @@
 package org.liang.cmd;
 
 import com.google.gson.*;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Level;
@@ -9,13 +11,20 @@ import org.eclipse.paho.client.mqttv3.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalTime;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ControlCommandEngine extends JFrame {
     private static final Logger logger = LogManager.getLogger(ControlCommandEngine.class);
+
+    // ── 新增：配置文件路径（与 ModernGui 共享 configs 目录）────────────
+    private static final String CONFIG_FILE = "configs/cmd_settings.json";
 
     private JTextField brokerField, subTopicField, pubTopicField, fPortField;
     private JComboBox<String> categoryCombo;
@@ -33,6 +42,7 @@ public class ControlCommandEngine extends JFrame {
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         initUI();
+        loadConfig(); // ── 新增：启动时加载配置 ──
     }
 
     private void initUI() {
@@ -86,12 +96,59 @@ public class ControlCommandEngine extends JFrame {
         setContentPane(mainPanel);
     }
 
+    // ── 新增：保存配置 ────────────────────────────────────────────────────
+    private void saveConfig() {
+        JSONObject json = new JSONObject();
+        json.put("broker",    brokerField.getText());
+        json.put("sub",       subTopicField.getText());
+        json.put("pub",       pubTopicField.getText());
+        json.put("fPort",     fPortField.getText());
+        json.put("category",  categoryCombo.getSelectedItem());
+        json.put("logEnabled", logToFileCh.isSelected());
+
+        try {
+            Files.createDirectories(Paths.get("configs"));
+            Files.writeString(Paths.get(CONFIG_FILE), json.toJSONString(), StandardCharsets.UTF_8);
+            appendLog("💾 配置已自动保存");
+            logger.info("💾 指令引擎配置已保存至 {}", CONFIG_FILE);
+        } catch (IOException e) {
+            appendLog("⚠️ 配置保存失败: " + e.getMessage());
+            logger.warn("配置保存失败", e);
+        }
+    }
+
+    // ── 新增：加载配置 ────────────────────────────────────────────────────
+    private void loadConfig() {
+        Path path = Paths.get(CONFIG_FILE);
+        if (!Files.exists(path)) return;
+
+        try {
+            String content = Files.readString(path, StandardCharsets.UTF_8);
+            JSONObject json = JSON.parseObject(content);
+
+            brokerField.setText(json.getString("broker"));
+            subTopicField.setText(json.getString("sub"));
+            pubTopicField.setText(json.getString("pub"));
+            fPortField.setText(json.getString("fPort"));
+            categoryCombo.setSelectedItem(json.getString("category"));
+            logToFileCh.setSelected(json.getBooleanValue("logEnabled"));
+
+            appendLog("📂 已从本地加载历史配置");
+            logger.info("📂 已加载指令引擎配置: {}", CONFIG_FILE);
+        } catch (Exception e) {
+            appendLog("⚠️ 配置文件读取异常: " + e.getMessage());
+            logger.error("配置读取失败", e);
+        }
+    }
+
     private void toggleConnection() {
         if (!isConnected) startMqtt();
         else stopMqtt();
     }
 
     private void startMqtt() {
+        saveConfig(); // ── 新增：启动前保存当前配置 ──
+
         Level level = logToFileCh.isSelected() ? Level.INFO : Level.OFF;
         Configurator.setLevel("RollingFile", level);
 
@@ -102,7 +159,6 @@ public class ControlCommandEngine extends JFrame {
             opt.setAutomaticReconnect(true);
             client.connect(opt);
 
-            // ✅ 成功反馈
             appendLog("✅ 系统: 成功连接至 MQTT Broker，已进入监听状态");
             logger.info("🚀 下行控制引擎启动成功");
 
@@ -127,13 +183,12 @@ public class ControlCommandEngine extends JFrame {
             JsonObject root = JsonParser.parseString(jsonStr).getAsJsonObject();
             if (!"cmd/set".equals(root.get("type").getAsString())) return;
 
-            // 获取当前 UI 选中的设备类型
             String selectedCategory = (String) categoryCombo.getSelectedItem();
 
             JsonArray dataArray = root.getAsJsonArray("data");
             for (JsonElement el : dataArray) {
                 JsonObject cmd = el.getAsJsonObject();
-                String m = cmd.get("m").getAsString();
+                String m      = cmd.get("m").getAsString();
                 String devEui = cmd.get("dev").getAsString();
                 Object v = cmd.get("v").isJsonPrimitive() && cmd.get("v").getAsJsonPrimitive().isBoolean()
                         ? cmd.get("v").getAsBoolean() : cmd.get("v").getAsString();
@@ -147,11 +202,9 @@ public class ControlCommandEngine extends JFrame {
                 }
 
                 String finalMqttJson = DownlinkPayloadTransformer.pack(selectedCategory, devEui, m, v, fPort);
-
                 client.publish(pubTopicField.getText(), finalMqttJson.getBytes(StandardCharsets.UTF_8), 0, false);
 
-                String displayLog = "🔄 转换成功: [" + devEui + "] 已按 " + selectedCategory + " 协议封装下发";
-                appendLog(displayLog);
+                appendLog("🔄 转换成功: [" + devEui + "] 已按 " + selectedCategory + " 协议封装下发");
                 logger.info("✅ 转发下行报文: {}", finalMqttJson);
             }
         } catch (Exception e) {

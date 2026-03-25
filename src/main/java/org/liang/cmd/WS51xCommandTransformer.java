@@ -6,7 +6,7 @@ import java.util.Base64;
 
 /**
  * Milesight WS51x 智能插座下行指令转换器
- *
+ * /LoRa/Outlet/down
  * 报文格式参考手册 5.3 节，每条指令由通道号(1B) + 类型(1B) + 数据(nB) 组成。
  * 下行字段与对应通道的映射关系：
  *   socket_status   -> CH 08: 00 00 ff (断电) / 01 00 ff (通电)

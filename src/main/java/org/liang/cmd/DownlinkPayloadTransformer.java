@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
+ *
  * 下行报文组装器 + 设备转换器注册表
  * 新增设备时，只需在下方 static 块中添加一行 register()，
  * UI 下拉框会自动出现新设备类型，其余代码无需改动。
@@ -20,10 +21,12 @@ public class DownlinkPayloadTransformer {
 
     static {
         // ↓↓↓ 新增设备：在此处追加 register() 一行即可 ↓↓↓
-        register("Switch",     new SwitchCommandTransformer());
-        register("DuctlessAC", new DuctlessAcCommandTransformer());
-        register("WS51x",      new WS51xCommandTransformer());
-        register("WS52x",      new WS51xCommandTransformer());
+        register("GenericSwitch",              new SwitchCommandTransformer());
+        register("DuctlessAC",          new DuctlessAcCommandTransformer());
+        register("WS51x",               new WS51xCommandTransformer());
+        register("WS52x",               new WS51xCommandTransformer()); // 协议与 WS51x 完全相同，共用同一 Transformer
+        register("WS558-Controller",    new WS558ControllerCommandTransformer());
+        register("SmartScenePanel",     new SSPanelCommandTransformer());
     }
 
     /** 注册设备类型（也可在运行时动态调用） */
