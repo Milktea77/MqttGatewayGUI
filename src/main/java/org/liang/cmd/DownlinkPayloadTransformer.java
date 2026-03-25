@@ -9,7 +9,6 @@ import java.util.Map;
 
 /**
  * 下行报文组装器 + 设备转换器注册表
- *
  * 新增设备时，只需在下方 static 块中添加一行 register()，
  * UI 下拉框会自动出现新设备类型，其余代码无需改动。
  */
@@ -24,6 +23,7 @@ public class DownlinkPayloadTransformer {
         register("Switch",     new SwitchCommandTransformer());
         register("DuctlessAC", new DuctlessAcCommandTransformer());
         register("WS51x",      new WS51xCommandTransformer());
+        register("WS52x",      new WS51xCommandTransformer());
     }
 
     /** 注册设备类型（也可在运行时动态调用） */
